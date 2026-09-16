@@ -8,6 +8,8 @@ roll-off.
 
 Load a track, drop the stylus, and hear it warm up like vinyl.
 
+![Vinyl Player — the turntable deck with a track loaded, spinning vinyl, tonearm lowered, and live DSP controls](assets/screenshot.png)
+
 ---
 
 ## Quick start
