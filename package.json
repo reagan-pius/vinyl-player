@@ -2,6 +2,13 @@
   "name": "vinyl-player",
   "private": true,
   "version": "0.0.0",
+  "description": "Web turntable music player — local audio through a real-time vinyl AudioWorklet DSP chain.",
+  "license": "MIT",
+  "author": "reagan-pius <reaganpius05@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reagan-pius/vinyl-player.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
