@@ -1,16 +1,6 @@
-#  Vinyl Player
+# Vinyl Player
 
-A web music player whose UI is a **spinning vinyl / turntable**, where the audio
-itself is processed in real time through an **AudioWorklet DSP chain that makes
-it sound like it's coming off a record** — rumble, wow & flutter, surface hiss,
-crackle and pops, gentle analog saturation, and a speed-dependent high-frequency
-roll-off.
-
-Load a track, drop the stylus, and hear it warm up like vinyl.
-
-![Vinyl Player — the turntable deck with a track loaded, spinning vinyl, tonearm lowered, and live DSP controls](assets/screenshot.png)
-
----
+A web music player with a spinning vinyl / turntable UI, where audio is processed in real time through an AudioWorklet DSP chain.
 
 ## Quick start
 
@@ -19,20 +9,17 @@ npm install
 npm run dev
 ```
 
-Then open **http://localhost:5173** and drop an audio file onto the deck
-(MP3 / WAV / AAC / FLAC / OGG).
+Then open **http://localhost:5173** and drop an audio file onto the deck (MP3 / WAV / AAC / FLAC / OGG).
 
 ```bash
 npm run build     # strict tsc type-check + production bundle -> dist/
 npm run preview   # serve the production build
-npm run test:dsp  # run the vinyl DSP in Node (no browser needed)
+nnpm run test:dsp  # run the vinyl DSP in Node (no browser needed)
 npm run test:store # queue + DSP-knob logic, no browser needed
 npm run test:metadata # tag reader (ID3/FLAC/OGG/MP4/WAV), no browser needed
 npm run test:smoke # build + drive the real app in headless Chrome (needs Chrome)
 npm test          # all of the above
 ```
-
----
 
 ## What it does
 
@@ -43,147 +30,71 @@ npm test          # all of the above
 | Vinyl sound | `public/vinyl-processor.js` — a real `AudioWorkletProcessor` |
 | Live controls | 33 / 45 / 78 RPM, vinyl condition, crackle, wow/flutter, rumble, hiss, warmth, gain, volume |
 | Local playback | `AudioBufferSource` → worklet → gain → speakers |
+| Seamless hand-off | The next track is decoded while the current one plays, so the boundary is a source swap, not a fetch-and-decode pause |
 | Tags & cover art | `src/lib/metadata.ts` — ID3v2 (MP3), Vorbis comments + PICTURE (FLAC), Ogg Vorbis/Opus comments, `ilst` atoms (M4A), RIFF `INFO` (WAV); filename fallback |
 | Keyboard & media keys | Space / ←→ / N / P / M, plus the Media Session API for OS controls |
 | Persistence & offline | Volume, RPM and DSP knobs persist in `localStorage`; self-hosted fonts, manifest, network-first service worker |
 | Verification | DSP harnesses + store/tag tests in Node, plus a headless-Chrome smoke test that imports, plays, auto-advances, pauses and ejects |
 
----
-
 ## Architecture
 
-```
-                 ┌─────────────────────────────────────────────┐
-                 │              React UI (Zustand)             │
-                 │  Turntable · Platter · Tonearm · Controls    │
-                 └───────────────────────┬─────────────────────┘
-                                         │ state
-                 ┌───────────────────────▼─────────────────────┐
-                 │            useVinylDsp (hook)               │
-                 │   decode → source → AudioWorkletNode        │
-                 └───────────────────────┬─────────────────────┘
-                                         │ PCM
-                 ┌───────────────────────▼─────────────────────┐
-                 │  VinylProcessor  (AudioWorklet, audio thread)│
-                 │  wow/flutter → rumble → hiss → crackle →     │
-                 │  saturation → stereo width → HF roll-off     │
-                 └───────────────────────┬─────────────────────┘
-                                         ▼
-                                      speakers
-```
-
-The store is the single source of truth for player *state*; the hook mirrors it
-into the audio graph and reports playback position back.
-
----
+The store is the single source of truth for player state; the hook mirrors it into the audio graph and reports playback position back.
 
 ## Project layout
 
-```
-vinyl-player/
-├── public/
-│   └── vinyl-processor.js         # AudioWorkletProcessor (classic script)
-├── src/
-│   ├── components/
-│   │   ├── Turntable.tsx          # scene root
-│   │   ├── Platter.tsx            # canvas vinyl + rotation
-│   │   ├── Tonearm.tsx            # svg arm / cueing
-│   │   ├── Controls.tsx           # transport + knobs
-│   │   └── TrackLoader.tsx        # drag-drop / file picker
-│   ├── dsp/workletTypes.ts        # shared param contract
+```text
+app/          └── main.tsx
+src/
 │   ├── hooks/
-│   │   ├── useVinylDsp.ts         # audio graph wiring
-│   │   ├── usePlatterAnimation.ts # rAF rotation physics
-│   │   ├── useMediaSession.ts     # OS media keys / now-playing
-│   │   └── useKeyboardShortcuts.ts
-│   ├── lib/metadata.ts            # ID3 / FLAC / MP4 tags + cover art
-│   ├── store/playerStore.ts       # Zustand state + actions
-│   ├── styles/index.css           # turntable theme
-│   ├── App.tsx
-│   └── main.tsx
+│   │   └── useVinylDsp.ts
+│   ├── lib/
+│   │   └── metadata.ts
+│   ├── store/
+│   │   └── playerStore.ts
+│   └── main.ts
+public/
+│   └── vinyl-processor.js
+dist/         # Production build
 ```
 
----
-
-## The vinyl DSP chain
+## Vinyl DSP chain
 
 Each stage mirrors a physical property of record playback:
 
-1. **Wow & Flutter** — pitch modulation from rotational instability. Implemented
-   as a variable-rate fractional resampler (ring buffer + LFO-modulated read
-   pointer, two summed sine LFOs). This is the hardest stage and the reason a
-   plain `<audio>` node can't do the job.
+1. **Wow & Flutter** — pitch modulation from rotational instability. Implemented as a variable-rate fractional resampler (ring buffer + LFO-modulated read pointer, two summed sine LFOs).
 2. **Sub-bass rumble** — low-frequency filtered noise.
 3. **Surface noise** — pink-ish filtered noise floor.
-4. **Clicks & Pops** — Poisson-scheduled events firing into a 48-impulse bank,
-   up to 4 simultaneous voices. Rate scales with crackle + wear.
+4. **Clicks & Pops** — Poisson-scheduled events firing into a 48-impulse bank, up to 4 simultaneous voices. Rate scales with crackle + wear.
 5. **Saturation** — gentle soft-clip (`d / (1 + |d|)`) for analog warmth.
 6. **Stereo width** — subtle mid-side narrowing that increases with wear.
 7. **HF roll-off** — low-pass that closes further at higher RPM.
 
-All of these are `AudioParam`s on the node, so the React knobs are real-time
-audio controls with no jank. The worklet uses a seeded PRNG (mulberry32) and
-allocates nothing inside `process()` — it never touches `Math.random()`.
-
----
+All of these are `AudioParam`s on the node, so the React knobs are real-time audio controls with no jank. The worklet uses a seeded PRNG (mulberry32) and allocates nothing inside `process()` — it never touches `Math.random()`.
 
 ## Scope & roadmap
 
 This is **Phase 1**: the DSP + turntable proof of concept, playing local files.
-(The longer engineering assessment and step-by-step walkthrough live in the
-local `docs/` folder, which is not tracked in this repo.)
 
-Deliberately **not** here yet (see the assessment for why):
+Deliberately **not** here yet:
 
-- **Spotify / YouTube playlist import.** Both platforms withhold raw PCM from
-  their public APIs, so audio can't be routed through our DSP. The safe product
-  path is Spotify/YouTube as a *metadata* source paired with decodable audio —
-  that's Phase 2.
+- **Spotify / YouTube playlist import.** Both platforms withhold raw PCM from their public APIs, so audio can't be routed through our DSP. The safe product path is Spotify/YouTube as a *metadata* source paired with decodable audio — that's Phase 2.
 - Playlist import (Spotify/YouTube metadata), track matching, cross-track seamlessness.
-
----
 
 ## Engine notes
 
-- The worklet lives in `public/` (not processed by Vite) so it can be loaded as
-  a classic script: `ctx.audioWorklet.addModule('/vinyl-processor.js')`.
-- Strict TypeScript (`verbatimModuleSyntax`, no unused locals) — `npm run build`
-  type-checks before bundling.
+- The worklet lives in `public/` (not processed by Vite) so it can be loaded as a classic script: `ctx.audioWorklet.addModule('/vinyl-processor.js')`.
+- Strict TypeScript (`verbatimModuleSyntax`, no unused locals) — `npm run build` type-checks before bundling.
 - Browsers block audio until a user gesture; the graph resumes on first play.
 
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `@vitejs/plugin-react` uses Oxc
+- `@vitejs/plugin-react-swc` uses SWC
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
-```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
-
----
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see the React documentation.
 
 ## License
 
-Released under the [MIT License](./LICENSE) — © 2026 reagan-pius
+Released under the MIT License © 2026 reagan-pius
