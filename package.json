@@ -15,11 +15,12 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "npm run test:dsp && npm run test:store && npm run test:metadata",
+    "test": "npm run test:dsp && npm run test:store && npm run test:metadata && npm run test:smoke",
     "test:dsp": "node scripts/test-dsp.mjs",
     "test:dsp:probe": "node scripts/probe-dsp.mjs",
     "test:store": "node scripts/test-store.mjs",
-    "test:metadata": "node scripts/test-metadata.mjs"
+    "test:metadata": "node scripts/test-metadata.mjs",
+    "test:smoke": "npm run build && node scripts/smoke-browser.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

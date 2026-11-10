@@ -28,6 +28,8 @@ npm run preview   # serve the production build
 npm run test:dsp  # run the vinyl DSP in Node (no browser needed)
 npm run test:store # queue + DSP-knob logic, no browser needed
 npm run test:metadata # tag reader (ID3/FLAC/OGG/MP4/WAV), no browser needed
+npm run test:smoke # build + drive the real app in headless Chrome (needs Chrome)
+npm test          # all of the above
 ```
 
 ---
@@ -44,6 +46,7 @@ npm run test:metadata # tag reader (ID3/FLAC/OGG/MP4/WAV), no browser needed
 | Tags & cover art | `src/lib/metadata.ts` — ID3v2 (MP3), Vorbis comments + PICTURE (FLAC), Ogg Vorbis/Opus comments, `ilst` atoms (M4A), RIFF `INFO` (WAV); filename fallback |
 | Keyboard & media keys | Space / ←→ / N / P / M, plus the Media Session API for OS controls |
 | Persistence & offline | Volume, RPM and DSP knobs persist in `localStorage`; self-hosted fonts, manifest, network-first service worker |
+| Verification | DSP harnesses + store/tag tests in Node, plus a headless-Chrome smoke test that imports, plays, auto-advances, pauses and ejects |
 
 ---
 

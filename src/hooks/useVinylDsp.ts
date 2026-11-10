@@ -311,9 +311,13 @@ export function useVinylDsp() {
         // `rate` from `offset`.
         sourceStartRef.current = ctx.currentTime;
         src.onended = () => {
+          // Detach BEFORE advancing: the position reporter reads sourceRef, and
+          // a tick landing between the hand-off and the next source's start
+          // would write this (old) track's duration into `position` — making
+          // the next track begin at its own end and stop instantly.
+          if (sourceRef.current === src) sourceRef.current = null;
           const gs = usePlayerStore.getState();
           if (gs.state === 'playing') gs.actions.advance();
-          else if (sourceRef.current === src) sourceRef.current = null;
         };
       })();
       return;
@@ -370,6 +374,7 @@ export function useVinylDsp() {
     src.start(0, seconds);
     sourceStartRef.current = ctx.currentTime;
     src.onended = () => {
+      if (sourceRef.current === src) sourceRef.current = null;
       const gs = usePlayerStore.getState();
       if (gs.state === 'playing') gs.actions.advance();
     };
