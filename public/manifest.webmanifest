@@ -1,0 +1,18 @@
+{
+  "name": "Vinyl Player",
+  "short_name": "Vinyl",
+  "description": "A spinning-vinyl music player that processes your music in real time to sound like it's coming off a record.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#11100d",
+  "theme_color": "#11100d",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

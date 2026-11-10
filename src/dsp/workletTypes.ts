@@ -13,7 +13,9 @@ export interface VinylParams {
   wearLevel: number;         // 0..1  — record wear (ties to many params)
   speed: number;             // 33 | 45 | 78  — affects HF roll-off & LFO rates
   wetDry: number;            // 0..1  — dry/wet mix of the vinyl DSP
-  outputGain: number;        // 0..4  — post-DSP gain
+  outputGain: number;        // 0..4  — post-DSP gain (UI caps at 2)
+  /** 1 = deck live (music + noise), 0 = gated silent when paused/stopped. */
+  deckActive: number;
 }
 
 export type VinylParamName = keyof VinylParams;

@@ -5,20 +5,32 @@ export interface TrackLoaderProps {
   /** Accept dropped / selected audio files and add them to the queue. */
   onFiles: (files: File[]) => Promise<void>;
   ready: boolean;
+  progress: { active: boolean; done: number; total: number };
 }
 
-export function TrackLoader({ onFiles, ready }: TrackLoaderProps) {
+export function TrackLoader({ onFiles, ready, progress }: TrackLoaderProps) {
   const [over, setOver] = useState(false);
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
-    const arr = Array.from(files).filter((f) => f.type.startsWith('audio/') || /\.(mp3|wav|aac|flac|ogg|m4a)$/i.test(f.name));
+    const arr = Array.from(files).filter(
+      (f) => f.type.startsWith('audio/') || /\.(mp3|wav|aac|m4a|flac|ogg|oga|opus|aiff?)$/i.test(f.name),
+    );
     if (arr.length) await onFiles(arr);
   }, [onFiles]);
 
   const onDrop = useCallback((e: DragEvent) => {
-    e.preventDefault(); setOver(false);
-    handleFiles(e.dataTransfer.files);
+    e.preventDefault();
+    setOver(false);
+    void handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
+
+  const hint = over
+    ? 'Release to load'
+    : progress.active
+      ? `Reading ${progress.done}/${progress.total}…`
+      : ready
+        ? 'Drop audio files or press Enter to browse'
+        : 'Loading the turntable…';
 
   return (
     <label
@@ -27,16 +39,21 @@ export function TrackLoader({ onFiles, ready }: TrackLoaderProps) {
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
     >
+      {/* Visually hidden, NOT `hidden`: a hidden input can't take focus, which
+          made loading music impossible without a mouse. */}
       <input
-        type="file" accept="audio/*" multiple hidden
-        onChange={(e) => handleFiles(e.target.files ?? [])}
+        type="file"
+        className="sr-only"
+        accept="audio/*"
+        multiple
+        onChange={(e) => {
+          const files = e.target.files;
+          if (files) void handleFiles(files);
+          e.target.value = '';
+        }}
       />
-      <span className="hint">
-        {over ? 'Release to load' : ready
-          ? 'Drop an audio file or click to browse'
-          : 'Loading the turntable…'}
-      </span>
-      <span className="sub">MP3, WAV, AAC, FLAC, OGG</span>
+      <span className="hint" aria-live="polite">{hint}</span>
+      <span className="sub">MP3, WAV, AAC, M4A, FLAC, OGG</span>
     </label>
   );
 }

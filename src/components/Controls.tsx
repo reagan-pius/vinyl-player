@@ -9,15 +9,15 @@ function fmt(t: number) {
 }
 
 function Knob({
-  label, value, min, max, step, onVal, unit = '', format,
+  label, value, min, max, step, onVal, unit = '', format, hint,
 }: {
   label: string; value: number; min: number; max: number; step?: number;
-  onVal: (v: number) => void; unit?: string; format?: (v: number) => string;
+  onVal: (v: number) => void; unit?: string; format?: (v: number) => string; hint?: string;
 }) {
   const fill = ((value - min) / (max - min)) * 100;
   const show = format ? format(value) : value.toFixed(step === 1 ? 0 : 2) + unit;
   return (
-    <div className="knob">
+    <div className="knob" title={hint}>
       <div className="knob-top">
         <span className="knob-label">{label}</span>
         <span className="knob-val">{show}</span>
@@ -25,6 +25,7 @@ function Knob({
       <input
         type="range" min={min} max={max} step={step ?? 0.01}
         value={value} style={{ ['--fill' as string]: `${fill}%` }}
+        aria-label={label}
         onChange={(e) => onVal(parseFloat(e.target.value))}
       />
     </div>
@@ -34,6 +35,7 @@ function Knob({
 export function Controls() {
   const state = usePlayerStore((s) => s.state);
   const speed = usePlayerStore((s) => s.platterSpeed);
+  const recordAge = usePlayerStore((s) => s.recordAge);
   const cond = usePlayerStore((s) => s.vinylCondition);
   const crackle = usePlayerStore((s) => s.crackleIntensity);
   const wfd = usePlayerStore((s) => s.wowFlutterDepth);
@@ -42,14 +44,13 @@ export function Controls() {
   const wet = usePlayerStore((s) => s.wetDry);
   const gain = usePlayerStore((s) => s.outputGain);
   const vol = usePlayerStore((s) => s.volume);
+  const muted = usePlayerStore((s) => s.muted);
   const pos = usePlayerStore((s) => s.position);
   const current = usePlayerStore((s) => s.queue[s.currentTrackIndex]);
   const dur = current?.duration;
   const a = usePlayerStore((s) => s.actions);
   const playing = state === 'playing';
   const hasTrack = Boolean(current);
-
-  const wear = Math.min(1, (cond + crackle + wfd + rumble + surf) / 5);
   const pct = dur ? Math.min(100, (pos / dur) * 100) : 0;
 
   return (
@@ -76,19 +77,29 @@ export function Controls() {
         <div className="speed-row compact">
           {([33, 45, 78] as PlatterSpeed[]).map((s) => (
             <button key={s} className="speed-btn" data-active={speed === s} onClick={() => a.setPlatterSpeed(s)}
-              aria-pressed={speed === s}>{s}</button>
+              aria-pressed={speed === s} aria-label={`${s === 33 ? '33⅓' : s} RPM`}
+              title={`${s === 33 ? '33⅓' : s} RPM`}>
+              {s === 33 ? '33⅓' : s}
+            </button>
           ))}
         </div>
-        <Knob label="Volume" value={vol} min={0} max={1} onVal={a.setVolume} />
+        <p className="speed-hint">
+          Wrong speed repitches the record — 45 or 78 on a 33 cut plays fast and sharp, just like a real deck.
+        </p>
+        <Knob label="Volume" value={muted ? 0 : vol} min={0} max={1}
+          hint="Master output. Press M to mute."
+          onVal={a.setVolume} />
       </section>
 
       <section className="deck-panel">
         <div className="panel-title">Record Character</div>
-        <Knob label="Record Wear" value={wear} min={0} max={1} step={0.01}
+        <Knob label="Record Wear" value={recordAge} min={0} max={1} step={0.01}
           format={(v) => `${Math.round(v * 100)}%`}
-          onVal={(v) => a.setCompositeWear(v)} />
+          hint="One knob for the whole record: crackle, hiss, flutter, rumble and stereo narrowing."
+          onVal={a.setCompositeWear} />
         <Knob label="Vinyl Mix" value={wet} min={0} max={1}
           format={(v) => `${Math.round(v * 100)}% vinyl`}
+          hint="Dry/wet mix of the vinyl DSP against the untouched source."
           onVal={a.setWetDry} />
       </section>
 
@@ -100,7 +111,9 @@ export function Controls() {
           <Knob label="Hiss" value={surf} min={0} max={1} onVal={a.setSurfaceNoise} />
           <Knob label="Rumble" value={rumble} min={0} max={1} onVal={a.setRumbleLevel} />
           <Knob label="Condition" value={cond} min={0} max={1} onVal={a.setVinylCondition} />
-          <Knob label="Gain" value={gain} min={0} max={2} step={0.01} onVal={a.setOutputGain} />
+          <Knob label="Output Trim" value={gain} min={0} max={2} step={0.01}
+            hint="Post-vinyl level. Above 100% the soft-clip stage adds grit; Volume is the clean master."
+            onVal={a.setOutputGain} />
         </div>
       </details>
     </div>

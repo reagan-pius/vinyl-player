@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { DragEvent } from 'react';
 import { useVinylDsp } from '../hooks/useVinylDsp';
+import { useMediaSession } from '../hooks/useMediaSession';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { usePlayerStore } from '../store/playerStore';
 import { Platter } from './Platter';
 import { Tonearm } from './Tonearm';
@@ -18,7 +20,10 @@ function fmt(t: number) {
  * scrolls — only the queue inside the rack does.
  */
 export function Turntable() {
-  const { ready, error, addLocalFiles, ctxState } = useVinylDsp();
+  const { ready, error, clearError, addLocalFiles, ctxState, importProgress } = useVinylDsp();
+  useMediaSession();
+  useKeyboardShortcuts();
+
   const current = usePlayerStore((s) => s.queue[s.currentTrackIndex]);
   const queue = usePlayerStore((s) => s.queue);
   const currentTrackIndex = usePlayerStore((s) => s.currentTrackIndex);
@@ -27,11 +32,17 @@ export function Turntable() {
   const actions = usePlayerStore((s) => s.actions);
   const [dragOver, setDragOver] = useState(false);
   const dragDepth = useRef(0);
+  const currentRowRef = useRef<HTMLButtonElement>(null);
 
   // keep the stylus cue in sync with playback for the ceremony
   useEffect(() => {
     if (state === 'playing') actions.setStylusPosition('lowered');
   }, [state, actions]);
+
+  // a long crate must not hide the record that's playing
+  useEffect(() => {
+    currentRowRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [currentTrackIndex, queue.length]);
 
   // drag-and-drop anywhere on the console
   const onDragEnter = (e: DragEvent) => {
@@ -91,31 +102,62 @@ export function Turntable() {
         <Controls />
 
         <section className="deck-panel">
-          <div className="panel-title">Crate</div>
-          <TrackLoader onFiles={addLocalFiles} ready={ready} />
+          <div className="panel-head">
+            <div className="panel-title">Crate{queue.length ? ` · ${queue.length}` : ''}</div>
+            {queue.length > 0 && (
+              <button className="link-btn" onClick={actions.clearQueue} title="Unload every record">
+                Eject all
+              </button>
+            )}
+          </div>
+          <TrackLoader onFiles={addLocalFiles} ready={ready} progress={importProgress} />
           {queue.length > 0 && (
             <ul className="queue">
-              {queue.map((t, i) => (
-                <li key={t.id}>
-                  <button className={`queue-row ${i === currentTrackIndex ? 'is-current' : ''}`}
-                    onClick={() => actions.setCurrent(i)}>
-                    <span className="q-num">{String(i + 1).padStart(2, '0')}</span>
-                    <span className="q-title">
-                      <span className="q-name">{t.title}</span>
-                      <span className="q-artist">{t.artist}</span>
-                    </span>
-                    {t.duration ? <span className="q-dur">{fmt(t.duration)}</span> : null}
-                  </button>
-                </li>
-              ))}
+              {queue.map((t, i) => {
+                const isCurrent = i === currentTrackIndex;
+                return (
+                  <li key={t.id}>
+                    <button
+                      ref={isCurrent ? currentRowRef : undefined}
+                      className={`queue-row ${isCurrent ? 'is-current' : ''}`}
+                      aria-current={isCurrent ? 'true' : undefined}
+                      onClick={() => actions.playIndex(i)}>
+                      <span className="q-num">{String(i + 1).padStart(2, '0')}</span>
+                      <span className="q-title">
+                        <span className="q-name">{t.title}</span>
+                        <span className="q-artist">{t.artist}</span>
+                      </span>
+                      {t.duration ? <span className="q-dur">{fmt(t.duration)}</span> : null}
+                    </button>
+                    <button
+                      className="q-remove"
+                      onClick={() => actions.removeTrack(t.id)}
+                      aria-label={`Remove ${t.title} from the crate`}
+                      title="Remove from crate">
+                      ×
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
       </div>
 
       <footer className="deck-footer">
-        {error && <div className="error">{error}</div>}
-        {!ready && !error && <div className="ready-badge">Initializing vinyl…</div>}
+        <p className="shortcut-hint">Space play/pause · ←/→ seek · N/P track · M mute</p>
+        {error && (
+          <div className="alert" role="alert">
+            <span>{error}</span>
+            <button className="alert-close" onClick={clearError} aria-label="Dismiss error">×</button>
+          </div>
+        )}
+        {!ready && !error && <div className="ready-badge" role="status">Initializing vinyl…</div>}
+        {importProgress.active && (
+          <div className="ready-badge" role="status">
+            Reading {importProgress.done}/{importProgress.total}…
+          </div>
+        )}
         {ready && ctxState !== 'running' && (
           <div className="audio-status" title="AudioContext state / worklet status">
             audio: <b>{ctxState}</b> · dsp: <b>ready</b>

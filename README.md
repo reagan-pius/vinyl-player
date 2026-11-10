@@ -26,6 +26,8 @@ Then open **http://localhost:5173** and drop an audio file onto the deck
 npm run build     # strict tsc type-check + production bundle -> dist/
 npm run preview   # serve the production build
 npm run test:dsp  # run the vinyl DSP in Node (no browser needed)
+npm run test:store # queue + DSP-knob logic, no browser needed
+npm run test:metadata # tag reader (ID3/FLAC/OGG/MP4/WAV), no browser needed
 ```
 
 ---
@@ -39,6 +41,9 @@ npm run test:dsp  # run the vinyl DSP in Node (no browser needed)
 | Vinyl sound | `public/vinyl-processor.js` — a real `AudioWorkletProcessor` |
 | Live controls | 33 / 45 / 78 RPM, vinyl condition, crackle, wow/flutter, rumble, hiss, warmth, gain, volume |
 | Local playback | `AudioBufferSource` → worklet → gain → speakers |
+| Tags & cover art | `src/lib/metadata.ts` — ID3v2 (MP3), Vorbis comments + PICTURE (FLAC), Ogg Vorbis/Opus comments, `ilst` atoms (M4A), RIFF `INFO` (WAV); filename fallback |
+| Keyboard & media keys | Space / ←→ / N / P / M, plus the Media Session API for OS controls |
+| Persistence & offline | Volume, RPM and DSP knobs persist in `localStorage`; self-hosted fonts, manifest, network-first service worker |
 
 ---
 
@@ -85,7 +90,10 @@ vinyl-player/
 │   ├── dsp/workletTypes.ts        # shared param contract
 │   ├── hooks/
 │   │   ├── useVinylDsp.ts         # audio graph wiring
-│   │   ── usePlatterAnimation.ts # rAF rotation physics
+│   │   ├── usePlatterAnimation.ts # rAF rotation physics
+│   │   ├── useMediaSession.ts     # OS media keys / now-playing
+│   │   └── useKeyboardShortcuts.ts
+│   ├── lib/metadata.ts            # ID3 / FLAC / MP4 tags + cover art
 │   ├── store/playerStore.ts       # Zustand state + actions
 │   ├── styles/index.css           # turntable theme
 │   ├── App.tsx
@@ -128,7 +136,7 @@ Deliberately **not** here yet (see the assessment for why):
   their public APIs, so audio can't be routed through our DSP. The safe product
   path is Spotify/YouTube as a *metadata* source paired with decodable audio —
   that's Phase 2.
-- PWA manifest, track matching, cross-track seamlessness.
+- Playlist import (Spotify/YouTube metadata), track matching, cross-track seamlessness.
 
 ---
 
