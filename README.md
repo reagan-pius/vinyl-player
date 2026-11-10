@@ -2,6 +2,10 @@
 
 A web music player with a spinning vinyl / turntable UI, where audio is processed in real time through an AudioWorklet DSP chain.
 
+![Vinyl Player — the turntable deck with a track loaded, spinning vinyl, tonearm lowered, and live DSP controls](assets/screenshot.png)
+
+## Quick start
+
 ## Quick start
 
 ```bash
